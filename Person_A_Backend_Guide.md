@@ -1,36 +1,5 @@
-Role: Backend + AI Drift Detection (FastAPI, pgvector, Embeddings)
-Goal: Ingest payloads, detect structural/semantic drift, and serve validated data to the frontend.
-
-0. Setup (15 min)
-
-Bash
-cd backend
+Role: Backend + AI Drift DetectionGoal: Ingest webhooks, calculate structural/semantic drift, and serve validated biomedical data via async APIs.0. Setup (15 min)Bashcd backend
 pip install fastapi uvicorn pytest httpx sentence-transformers psycopg2-binary pgvector --break-system-packages
-mkdir -p app
-Note: Person C will handle the Dockerization later. Focus purely on local logic first.
-
-1. Database & Baseline Setup (Hour 1–2)
-
-Action: Build the PostgreSQL + pgvector schema. Create tables for ScrapeEvents and ResearchArticles.
-
-Vectorization: Ensure ResearchArticles has a vector column for the baseline embeddings.
-
-Test Goal: Make test_db_connection.py pass locally.
-
-2. The AI Drift Engine (Hour 3–5)
-
-Action: Load a lightweight sentence transformer (e.g., all-MiniLM-L6-v2) to run locally without rate limits.
-
-Structural Drift: Write calculate_structural_drift(payload). Check for missing keys expected by the Biology domain (defined by Person B).
-
-Semantic Drift: Write calculate_semantic_drift(new_text, baseline_vector). Convert text to an embedding and calculate cosine distance.
-
-Test Goal: Make test_drift_logic.py pass. It must successfully flag garbage text (like website footers) masquerading as medical data.
-
-3. Webhook Ingestion API (Hour 6–7)
-
-Action: Build POST /api/v1/ingest for Person C's scraper to hit. It must return a 200 OK immediately and process the drift math asynchronously so the scraper doesn't timeout.
-
-4. Frontend API Endpoints (Hour 8)
-
-Action: Build GET /api/v1/updates (returns clean data for the researcher feed) and GET /api/v1/scraper-health (returns drift telemetry).
+mkdir -p app tests
+touch app/__init__.py tests/__init__.py
+Run python -m pytest tests/ -q to verify your starting point.1. Database & Baseline Setup (Hour 1–2)Action: Write the schema for PostgreSQL + pgvector. You need two core tables: ScrapeEvents (to log the webhook payload and health score) and ResearchArticles.Vectorization: Ensure ResearchArticles has a vector(384) column (or appropriate dimension) to store the expected baseline embedding of a valid biomedical abstract.Test Goal: Make test_db_connection.py green.2. The AI Drift Engine (Hour 3–5)Action: Load a fast sentence transformer (e.g., all-MiniLM-L6-v2) to run embeddings locally without API rate limits.Structural Drift ($H_1$): Write calculate_structural_drift(payload: dict) -> float. Check for missing or malformed keys (e.g., missing clinical_outcomes).Semantic Drift ($H_2$): Write calculate_semantic_drift(new_text: str, baseline_vector: list) -> float. Convert the incoming text to a vector and calculate the cosine distance against the baseline.Test Goal: Make test_drift_logic.py green. It must successfully flag garbage text (e.g., if the scraper grabbed the website's cookie policy instead of a clinical trial).3. Webhook Ingestion API (Hour 6–7)Action: Build an async endpoint POST /api/v1/ingest for Tanzeel's scraper to hit.Flow: It must return a 200 OK immediately so the scraper doesn't timeout, then process the drift math and database insertion asynchronously.4. Frontend API Endpoints (Hour 8)Action: Build GET /api/v1/updates (returns clean data for Arsh's feed) and GET /api/v1/scraper-health (returns the telemetry and drift scores).Test Goal: Make test_frontend_api.py green.
