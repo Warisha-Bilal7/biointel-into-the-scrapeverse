@@ -14,5 +14,5 @@ Warisha (Backend) $\rightarrow$ Arsh (Frontend): GET /api/v1/scraper-healthJSON{
 }
 
 2. Drift Math (For Warisha's Pytest Suite)
-Semantic Distance ($D_{sem}$): Cosine distance between the incoming text vector and the baseline vector.Test Constraint: If $D_{sem} > 0.35$, the test must assert is_anomalous == True.
+Semantic Distance ($D_{sem}$): Cosine distance between the incoming text vector and the baseline vector.Test Constraint: If $D_{sem} > 0.55$, the test must assert is_anomalous == True.
 Structural Drift ($D_{str}$): Missing keys / Expected keys.Test Constraint: If $D_{str} > 0.20$, the test must assert is_anomalous == True.

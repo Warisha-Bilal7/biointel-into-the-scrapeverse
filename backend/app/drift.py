@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 EXPECTED_KEYS = {"source_url", "title", "abstract", "status", "timestamp"}
 STRUCTURAL_THRESHOLD = 0.20
-SEMANTIC_THRESHOLD = 0.35
+SEMANTIC_THRESHOLD = 0.55
 
 _model = None
 

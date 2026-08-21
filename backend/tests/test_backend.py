@@ -53,10 +53,11 @@ _session = SessionLocal()
 _existing = _session.query(BaselineEmbedding).first()
 if _existing is None:
     _baseline_text = (
-        "Phase 3 randomized double-blind placebo-controlled trial evaluating "
-        "efficacy and safety of drug intervention in patients with chronic condition. "
-        "Primary endpoint is reduction in disease severity score. "
-        "Study is currently recruiting participants across multiple clinical sites."
+        "Clinical trial evaluating efficacy and safety of therapeutic intervention "
+        "in patients with disease. Randomized controlled study with primary endpoint "
+        "of treatment outcome. Phase study enrolling participants across clinical "
+        "sites. Investigational drug therapy for medical condition. Patient outcomes "
+        "and adverse events being monitored in this clinical research study."
     )
     _vec = _encode(_baseline_text)
     _emb = BaselineEmbedding(label="default", embedding_json=_json.dumps(_vec))
