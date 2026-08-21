@@ -11,15 +11,34 @@ Thresholds (from TDD-sheet.md):
 
 import logging
 import math
-from typing import Optional
+from typing import Optional, Callable
 
 logger = logging.getLogger(__name__)
 
-EXPECTED_KEYS = {"source_url", "title", "abstract", "status", "timestamp"}
+EXPECTED_KEYS_DEFAULT = {"source_url", "title", "abstract", "status", "timestamp"}
 STRUCTURAL_THRESHOLD = 0.20
 SEMANTIC_THRESHOLD = 0.55
 
-_model = None
+
+# ---------------------------------------------------------------------------
+# Protocol for dependency injection
+# ---------------------------------------------------------------------------
+
+class TextEncoderProtocol:
+    """Protocol for text encoding, enabling dependency injection.
+
+    Implementers must define an ``encode`` method that takes a string and
+    returns a normalised embedding vector (list of floats).
+    """
+
+    def encode(self, text: str) -> list[float]: ...
+
+
+# ---------------------------------------------------------------------------
+# Global model state — now fully injectable
+# ---------------------------------------------------------------------------
+
+_model: Optional[object] = None  # type: ignore[assignment]  # lazy-loaded SentenceTransformer or False
 
 
 def _get_model():
@@ -35,7 +54,32 @@ def _get_model():
     return _model
 
 
-def _encode(text: str) -> list[float]:
+# ---------------------------------------------------------------------------
+# Public API
+# ---------------------------------------------------------------------------
+
+def _encode(
+    text: str,
+    encoder: Optional[TextEncoderProtocol] = None,
+) -> list[float]:
+    """Encode *text* using the injected *encoder* or the default lazy-load.
+
+    Parameters
+    ----------
+    text : str
+        Input text to encode.
+    encoder : TextEncoderProtocol, optional
+        If provided, used instead of the global model lazy-load.
+        Defaults to ``None``, which loads the sentence-transformers model
+        once and falls back to ``_keyword_encode``.
+
+    Returns
+    -------
+    list[float]
+        Normalised embedding vector.
+    """
+    if encoder is not None:
+        return encoder.encode(text)
     model = _get_model()
     if model and model is not False:
         import numpy as np
@@ -61,7 +105,11 @@ def _keyword_encode(text: str) -> list[float]:
     return [v / norm for v in vec]
 
 
-def cosine_distance(a: list[float], b: list[float]) -> float:
+def cosine_distance(
+    a: list[float],
+    b: list[float],
+) -> float:
+    """Cosine distance between two vectors."""
     if len(a) != len(b):
         min_len = min(len(a), len(b))
         a, b = a[:min_len], b[:min_len]
@@ -72,34 +120,107 @@ def cosine_distance(a: list[float], b: list[float]) -> float:
     return 1.0 - max(-1.0, min(1.0, sim))
 
 
-def calculate_structural_drift(payload: dict) -> float:
+# ---------------------------------------------------------------------------
+# Structural drift
+# ---------------------------------------------------------------------------
+
+def calculate_structural_drift(
+    payload: dict,
+    expected_keys: Optional[set] = None,
+) -> float:
+    """Structural drift: missing / extra keys vs expected schema.
+
+    Parameters
+    ----------
+    payload : dict
+        The incoming payload dict.
+    expected_keys : set, optional
+        Keys that are expected.  Defaults to ``EXPECTED_KEYS_DEFAULT``
+        ``{"source_url", "title", "abstract", "status", "timestamp"}``.
+
+    Returns
+    -------
+    float
+        Drift score in ``[0, 1]``.  ``0`` = no drift, ``1`` = maximally drift.
+    """
     if not payload:
         return 1.0
+    expected = expected_keys or EXPECTED_KEYS_DEFAULT
     payload_keys = set(payload.keys())
-    missing = EXPECTED_KEYS - payload_keys
-    extra = payload_keys - EXPECTED_KEYS
-    total_expected = len(EXPECTED_KEYS)
+    missing = expected - payload_keys
+    # Treat keys with empty/None values as missing data
+    for key in payload_keys:
+        if key in expected and not payload[key]:
+            missing.add(key)
+    extra = payload_keys - expected
+    total_expected = len(expected)
     drift = (len(missing) + len(extra)) / total_expected
     return min(drift, 1.0)
 
 
+# ---------------------------------------------------------------------------
+# Semantic drift
+# ---------------------------------------------------------------------------
+
 def calculate_semantic_drift(
     text: str,
-    baseline_vector=None,
+    baseline_vector: Optional[list[float]] = None,
+    encoder: Optional[TextEncoderProtocol] = None,
 ) -> float:
+    """Semantic drift: cosine distance between incoming text and baseline.
+
+    Parameters
+    ----------
+    text : str
+        Incoming text to compare.
+    baseline_vector : list[float], optional
+        Pre-computed baseline embedding.  If ``None``, returns ``0.0``.
+        If provided as a string, it is encoded via *encoder*.
+    encoder : TextEncoderProtocol, optional
+        Used to encode *text* and (if *baseline_vector* is a string) the
+        baseline.  If ``None``, the default ``_encode`` (with global model
+        lazy-load) is used.
+
+    Returns
+    -------
+    float
+        Semantic distance in ``[0, 1]``.  ``0`` = identical, ``1`` = maximally
+        different.
+    """
     if not text or not text.strip():
         return 1.0
     if baseline_vector is None:
         return 0.0
     if isinstance(baseline_vector, str):
-        baseline_vector = _encode(baseline_vector)
-    incoming_vec = _encode(text)
+        baseline_vector = _encode(baseline_vector, encoder=encoder)
+    incoming_vec = _encode(text, encoder=encoder)
     return cosine_distance(incoming_vec, baseline_vector)
 
 
-def get_baseline_vector() -> Optional[list[float]]:
-    """Try to load the latest baseline embedding from the DB.
-    Returns None if the table is empty (first-run scenario)."""
+# ---------------------------------------------------------------------------
+# Baseline vector
+# ---------------------------------------------------------------------------
+
+def get_baseline_vector(
+    get_baseline: Optional[Callable[[], Optional[list[float]]]] = None,
+) -> Optional[list[float]]:
+    """Return the baseline vector.
+
+    Parameters
+    ----------
+    get_baseline : Callable[[], Optional[list[float]]], optional
+        Function that returns the baseline vector.  When provided, called
+        instead of querying the database.  Defaults to ``None``, which
+        performs the DB query (original behaviour).
+
+    Returns
+    -------
+    Optional[list[float]]
+        The baseline embedding, or ``None`` if unavailable.
+    """
+    if get_baseline is not None:
+        return get_baseline()
+    # Original DB-query behaviour (kept for backward compatibility)
     try:
         from .database import SessionLocal
         from .models import BaselineEmbedding
@@ -121,12 +242,44 @@ def get_baseline_vector() -> Optional[list[float]]:
     return None
 
 
-def analyze_payload(payload: dict) -> dict:
-    """Run both drift checks and return a full analysis dict."""
+# ---------------------------------------------------------------------------
+# Payload analysis
+# ---------------------------------------------------------------------------
+
+def analyze_payload(
+    payload: dict,
+    encoder: Optional[TextEncoderProtocol] = None,
+    get_baseline: Optional[Callable[[], Optional[list[float]]]] = None,
+) -> dict:
+    """Run both drift checks and return a full analysis dict.
+
+    This is the same contract as the original ``analyze_payload`` but with
+    dependencies that can be injected for testing.
+
+    Parameters
+    ----------
+    payload : dict
+        The incoming payload dict (5-key expected schema).
+    encoder : TextEncoderProtocol, optional
+        Used by ``calculate_semantic_drift`` to encode text.  Defaults to
+        ``None``, which uses the global model lazy-load.
+    get_baseline : Callable[[], Optional[list[float]]], optional
+        Function that returns the baseline embedding.  When ``None``, the
+        database is queried (original behaviour).
+
+    Returns
+    -------
+    dict
+        ``{
+            "structural_score": float,
+            "semantic_score": float,
+            "is_anomalous": bool,
+        }``
+    """
     structural = calculate_structural_drift(payload)
     abstract = payload.get("abstract", "")
-    baseline = get_baseline_vector()
-    semantic = calculate_semantic_drift(abstract, baseline)
+    baseline = get_baseline_vector(get_baseline=get_baseline)
+    semantic = calculate_semantic_drift(abstract, baseline, encoder=encoder)
 
     is_anomalous = structural > STRUCTURAL_THRESHOLD or semantic > SEMANTIC_THRESHOLD
 

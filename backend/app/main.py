@@ -11,18 +11,14 @@ from typing import Optional
 
 from .database import engine, SessionLocal, Base
 from .models import ScrapeEvent, BaselineEmbedding
-from .drift import (
-    analyze_payload,
-    calculate_structural_drift,
-    calculate_semantic_drift,
-    get_baseline_vector,
-    _encode,
-    STRUCTURAL_THRESHOLD,
-    SEMANTIC_THRESHOLD,
-)
+from .drift_adapter import DriftEngine
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Global drift engine instance — real dependencies for production use.
+# Tests can replace it with a DriftEngine injected with mock encoder/baseline.
+_drift_engine = DriftEngine()
 
 
 def init_db():
@@ -88,7 +84,7 @@ def _process_drift(event_id: str, payload: dict):
         if event is None:
             return
 
-        analysis = analyze_payload(payload)
+        analysis = _drift_engine.analyze_payload(payload)
         event.structural_score = analysis["structural_score"]
         event.semantic_score = analysis["semantic_score"]
         event.is_anomalous = analysis["is_anomalous"]
@@ -96,7 +92,7 @@ def _process_drift(event_id: str, payload: dict):
         if not analysis["is_anomalous"]:
             abstract = payload.get("abstract", "")
             if abstract:
-                vec = _encode(abstract)
+                vec = _drift_engine.encode(abstract)
                 event.vector_id = str(uuid.uuid4())
 
         db.commit()

@@ -53,6 +53,20 @@ biointel-into-the-scrapeverse/
 | 3 — E2E Testing | ✅ Complete | Live demo works; mock_webhook_sender.py tested |
 | 4 — Diagrams + Pitch | ✅ Complete | 3 Mermaid diagrams in README/Devpost |
 
+## Agent skills
+
+### Issue tracker
+
+GitHub issue tracker. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default triage labels: needs-triage, needs-info, ready-for-agent, ready-for-human, wontfix. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+single-context. See `docs/agents/domain.md`.
+
 ## What NOT to do
 
 - Don't restructure `backend/app/` — the `main.py` entrypoints and test imports are wired for this layout
