@@ -1,0 +1,30 @@
+rules:
+  - id: drift-threshold-compliance
+    languages: [python]
+    message: "Verify drift thresholds match TDD-sheet.md: structural <= 0.20, semantic <= 0.35"
+    severity: WARNING
+    patterns:
+      - pattern: STRUCTURAL_THRESHOLD = 0.20
+      - pattern: SEMANTIC_THRESHOLD = 0.35
+    metadata:
+      severity: warning
+      categories: [best-practices]
+      technology: [python]
+
+  - id: drift-threshold-doc-reference
+    languages: [python]
+    message: "Drift thresholds should reference TDD-sheet.md for correct values"
+    severity: INFO
+    pattern: |
+      ,
+      # TDD-sheet.md specifies:
+      # - structural > 0.20 -> anomalous
+      # - semantic > 0.35 -> anomalous
+    patterns-not:
+      - pattern: |
+          STRUCTURAL_THRESHOLD = 0.20
+          SEMANTIC_THRESHOLD = 0.35
+    metadata:
+      severity: info
+      categories: [documentation]
+      technology: [python]

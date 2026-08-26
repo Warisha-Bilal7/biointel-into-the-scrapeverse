@@ -1,0 +1,17 @@
+# Ignore frontend assets
+*.next/
+*.js
+*.ts
+*.json
+
+# Ignore test fixtures
+tests/
+test.db
+
+# Ignore generated
+generated/
+vendor/
+node_modules/
+
+# Ignore __pycache__
+**/__pycache__/
