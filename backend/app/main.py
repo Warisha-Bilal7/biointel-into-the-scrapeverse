@@ -53,7 +53,6 @@ def seed_baseline():
 
 def _make_drift_engine() -> DriftEngine:
     """Create a DriftEngine instance with real dependencies (model + baseline)."""
-    from .drift_ad import DriftEngine as _DE
     # The baseline vector is computed from the seeded text; in production this
     # would come from the DB, but for the minimal refactor we compute it here
     # and pass it to the constructor so the dependency is explicit.
