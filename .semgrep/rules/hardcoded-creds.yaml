@@ -1,0 +1,24 @@
+rules:
+  - id: hardcoded-password-in-payload
+    languages: [python]
+    message: "Potential hardcoded password or credential in scrape payload"
+    severity: ERROR
+    patterns:
+      - pattern: password = "$PASSWORD"
+      - pattern: api_key = "$KEY"
+      - pattern: secret = "$SECRET"
+    metadata:
+      severity: error
+      categories: [secret-management, hardcoded-secrets]
+      technology: [python]
+
+  - id: hardcoded-model-init
+    languages: [python]
+    message: "SentenceTransformer model initialization detected"
+    severity: INFO
+    patterns:
+      - pattern: _model = SentenceTransformer("$MODEL_NAME")
+    metadata:
+      severity: info
+      categories: [code-quality]
+      technology: [python]

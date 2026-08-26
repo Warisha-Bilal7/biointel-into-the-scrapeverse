@@ -1,0 +1,23 @@
+rules:
+  - id: potential-sql-injection
+    languages: [python]
+    message: "Potential SQL injection - use parameterized queries"
+    severity: ERROR
+    patterns:
+      - pattern: $CURSOR.execute($QUERY)
+    metadata:
+      severity: error
+      categories: [injection, owasp-a03]
+      technology: [python]
+
+  - id: unsafe-string-concat-query
+    languages: [python]
+    message: "Unsafe SQL query construction via string concatenation"
+    severity: WARNING
+    patterns:
+      - pattern: $QUERY = "SELECT * FROM users WHERE id = " + $ID
+      - pattern: $QUERY = 'SELECT * FROM users WHERE id = ' + $ID
+    metadata:
+      severity: warning
+      categories: [code-quality]
+      technology: [python]
