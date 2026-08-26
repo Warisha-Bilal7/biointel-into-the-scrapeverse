@@ -121,6 +121,41 @@ def cosine_distance(
 
 
 # ---------------------------------------------------------------------------
+# Payload normalization
+# ---------------------------------------------------------------------------
+
+def normalize_payload(
+    payload: dict,
+    expected_keys: Optional[set] = None,
+) -> set:
+    """Return the set of payload keys that are "missing" (absent or empty/None).
+
+    Parameters
+    ----------
+    payload : dict
+        The incoming payload dict.
+    expected_keys : set, optional
+        Keys that are expected.  Defaults to ``EXPECTED_KEYS_DEFAULT``
+        ``{"source_url", "title", "abstract", "status", "timestamp"}``.
+
+    Returns
+    -------
+    set
+        Keys from ``expected_keys`` that are absent or have empty/None values.
+    """
+    if not payload:
+        return EXPECTED_KEYS_DEFAULT if not expected_keys else expected_keys
+    expected = expected_keys or EXPECTED_KEYS_DEFAULT
+    payload_keys = set(payload.keys())
+    missing = expected - payload_keys
+    # Treat keys with empty/None values as missing data
+    for key in payload_keys:
+        if key in expected and not payload[key]:
+            missing.add(key)
+    return missing
+
+
+# ---------------------------------------------------------------------------
 # Structural drift
 # ---------------------------------------------------------------------------
 
@@ -129,6 +164,11 @@ def calculate_structural_drift(
     expected_keys: Optional[set] = None,
 ) -> float:
     """Structural drift: missing / extra keys vs expected schema.
+
+    This function is now purely about key-set mathematics — it does not
+    inspect payload values.  The "missing" set is obtained via
+    ``normalize_payload`` so that the interface concentrates on the drift
+    score calculation rather than value inspection.
 
     Parameters
     ----------
@@ -147,11 +187,7 @@ def calculate_structural_drift(
         return 1.0
     expected = expected_keys or EXPECTED_KEYS_DEFAULT
     payload_keys = set(payload.keys())
-    missing = expected - payload_keys
-    # Treat keys with empty/None values as missing data
-    for key in payload_keys:
-        if key in expected and not payload[key]:
-            missing.add(key)
+    missing = normalize_payload(payload, expected_keys=expected_keys or set())
     extra = payload_keys - expected
     total_expected = len(expected)
     drift = (len(missing) + len(extra)) / total_expected
