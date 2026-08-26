@@ -68,10 +68,16 @@ _session.close()
 from fastapi.testclient import TestClient
 from app.main import app
 
+# Override the DriftEngine dependency so tests can inject mocks
+from app.drift_adapter import DriftEngine
+from app.drift import _keyword_encode
 
-# ---------------------------------------------------------------------------
-# 1. Structural drift — valid payload
-# ---------------------------------------------------------------------------
+# Create a mock engine with keyword encoder (no sentence-transformers dependency)
+mock_engine = DriftEngine(encoder=_keyword_encode)
+
+app.dependency_overrides[DriftEngine] = lambda: mock_engine
+
+client = TestClient(app)
 
 def test_structural_drift_valid_payload():
     payload = {
