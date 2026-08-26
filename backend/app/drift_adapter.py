@@ -21,7 +21,6 @@ from .drift import (
     _encode,
     _keyword_encode,
     get_baseline_vector,
-    STRUCTURAL_THRESHOLD,
     SEMANTIC_THRESHOLD,
 )
 
@@ -35,7 +34,7 @@ class TextEncoderProtocol(Protocol):
 class DriftEngine:
     """Adapter between the API / tests and the drift detection engine.
 
-    Encapsulates the two hidden dependencies that make drift analysis hard
+    Encapsulates the hidden dependencies that make drift analysis hard
     to test without loading the sentence-transformers model or touching the
     database:
 
@@ -53,6 +52,9 @@ class DriftEngine:
     get_baseline : Callable[[], Optional[list[float]]], optional
         Function that returns the baseline vector.  Used when ``baseline_vector``
         is not supplied.  Defaults to ``drift.py:get_baseline_vector`` (DB query).
+    structural_threshold : float, optional
+        Threshold for structural drift.  Defaults to ``0.20`` (per
+        ``TDD-sheet.md`` and ``payload.md``).
     """
 
     def __init__(
@@ -60,10 +62,12 @@ class DriftEngine:
         encoder: Optional[TextEncoderProtocol] = None,
         baseline_vector: Optional[list[float]] = None,
         get_baseline: Optional[Callable[[], Optional[list[float]]]] = None,
+        structural_threshold: float = 0.20,
     ):
         self._encoder = encoder
         self._baseline_vector = baseline_vector
         self._get_baseline = get_baseline
+        self._structural_threshold = structural_threshold
 
     # ------------------------------------------------------------------
     # Encoder accessor
@@ -103,7 +107,7 @@ class DriftEngine:
         baseline = self.get_baseline()
         semantic = calculate_semantic_drift(abstract, baseline)
 
-        is_anomalous = structural > STRUCTURAL_THRESHOLD or semantic > SEMANTIC_THRESHOLD
+        is_anomalous = structural > self._structural_threshold or semantic > SEMANTIC_THRESHOLD
 
         return {
             "structural_score": round(structural, 4),
