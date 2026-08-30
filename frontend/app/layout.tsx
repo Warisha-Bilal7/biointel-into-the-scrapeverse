@@ -34,7 +34,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={inter.className} className="min-h-screen bg-background">
+      <body className={`${inter.className} min-h-screen bg-background`}>
         <div className="flex min-h-screen">
           <Sidebar />
           <div className="flex flex-col flex-1 overflow-auto">

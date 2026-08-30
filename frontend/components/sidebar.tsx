@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import {
   Home,
   Settings,
@@ -96,7 +97,7 @@ export default function Sidebar() {
         <ul className="space-y-1">
           {navLinks.map(({ href, icon: Icon, label }) => (
             <li key={href}>
-              <a
+              <Link
                 href={href}
                 title={collapsed ? label : undefined}
                 className={`group flex items-center rounded-md p-2 text-sm font-medium text-foreground transition-colors hover:bg-accent/20 hover:text-primary ${
@@ -110,7 +111,7 @@ export default function Sidebar() {
                 {!collapsed && (
                   <span>{label}</span>
                 )}
-              </a>
+              </Link>
             </li>
           ))}
         </ul>
